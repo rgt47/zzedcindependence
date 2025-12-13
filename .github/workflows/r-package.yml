@@ -41,23 +41,30 @@ jobs:
           docker build -t compendium-env .
           echo "✅ Docker image built successfully"
 
-      # Step 4: Run unit tests (MUST PASS)
+      # Step 4: Run unit tests (conditional - only if tests exist)
       # Packages pre-installed in Docker image from renv.lock
+      # Skips gracefully if tests/testthat directory doesn't exist or is empty
       - name: Run unit tests
         run: |
-          echo "🧪 Running unit tests..."
-          docker run --rm -v ${{ github.workspace }}:/home/analyst/project \
-            -w /home/analyst/project \
-            --user root \
-            compendium-env bash -c '
-            # Fix permissions for mounted volume (GitHub Actions)
-            chown -R analyst:analyst /home/analyst/project
-            mkdir -p /home/analyst/project/renv
-            chown -R analyst:analyst /home/analyst/project/renv
-            # Switch to analyst user for operations
-            su - analyst -c "cd /home/analyst/project && Rscript -e '"'"'testthat::test_dir(\"tests/testthat\", reporter=\"summary\")'"'"'" 2>&1
-          '
-          echo "✅ All unit tests passed"
+          echo "🧪 Checking for unit tests..."
+          # Check if tests/testthat directory exists and has *.R files
+          if [ -d "tests/testthat" ] && ls tests/testthat/*.R > /dev/null 2>&1; then
+            echo "✅ Tests found - running testthat..."
+            docker run --rm -v ${{ github.workspace }}:/home/analyst/project \
+              -w /home/analyst/project \
+              --user root \
+              compendium-env bash -c '
+              # Fix permissions for mounted volume (GitHub Actions)
+              chown -R analyst:analyst /home/analyst/project
+              mkdir -p /home/analyst/project/renv
+              chown -R analyst:analyst /home/analyst/project/renv
+              # Switch to analyst user for operations
+              su - analyst -c "cd /home/analyst/project && Rscript -e '"'"'testthat::test_dir(\"tests/testthat\", reporter=\"summary\")'"'"'" 2>&1
+            '
+            echo "✅ All unit tests passed"
+          else
+            echo "⏭️  No unit tests found - skipping (tests/testthat/*.R not present)"
+          fi
 
       # Step 5: Run analysis pipeline
       # Execute data processing, model fitting, figure generation
