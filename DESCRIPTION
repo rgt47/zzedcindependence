@@ -17,5 +17,5 @@ Imports:
     knitr,
     palmerpenguins,
     rmarkdown,
-    zzedc
+    zzedc,
 Config/testthat/edition: 3
