@@ -18,5 +18,4 @@ Imports:
     palmerpenguins,
     rmarkdown,
     zzedc,
-    rcmdcheck,
 Config/testthat/edition: 3
