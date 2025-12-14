@@ -16,7 +16,6 @@ Imports:
     here,
     knitr,
     palmerpenguins,
-    rcmdcheck,
     rmarkdown,
     zzedc
 Config/testthat/edition: 3
