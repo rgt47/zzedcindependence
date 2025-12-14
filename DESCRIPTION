@@ -10,6 +10,13 @@ License: GPL-3
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
-Suggests:
-    testthat (>= 3.0.0)
+Imports:
+    renv,
+    testthat (>= 3.0.0),
+    here,
+    knitr,
+    palmerpenguins,
+    rcmdcheck,
+    rmarkdown,
+    zzedc,
 Config/testthat/edition: 3
