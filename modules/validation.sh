@@ -1768,14 +1768,19 @@ validate_and_report() {
     local strict_mode="${1:-true}"
     local auto_fix="${2:-true}"
     local verbose="${3:-false}"
+    local cleanup_unused="${4:-false}"
 
     if validate_package_environment "$strict_mode" "$auto_fix" "$verbose"; then
         log_success "Package environment validation passed"
 
-        # Clean up unused packages from DESCRIPTION
-        # This runs after validation to ensure all used packages are declared
-        log_debug "Checking for unused packages in DESCRIPTION..."
-        remove_unused_packages_from_description "$strict_mode"
+        # Clean up unused packages from DESCRIPTION if requested
+        # Only when --cleanup-unused flag is used (for final publication)
+        # Skipped by default during development since packages may have implicit usage
+        # (e.g., Quarto dependencies, indirect library calls)
+        if [[ "$cleanup_unused" == "true" ]]; then
+            log_info "Cleaning up unused packages from DESCRIPTION..."
+            remove_unused_packages_from_description "$strict_mode"
+        fi
 
         return 0
     else
@@ -1841,6 +1846,7 @@ main() {
     local strict_mode=true
     local auto_fix=true
     local verbose=false
+    local cleanup_unused=false
 
     # Parse arguments
     while [[ $# -gt 0 ]]; do
@@ -1865,6 +1871,10 @@ main() {
                 verbose=true
                 shift
                 ;;
+            --cleanup-unused)
+                cleanup_unused=true
+                shift
+                ;;
             --system-deps)
                 detect_missing_system_deps "${2:-.}/Dockerfile"
                 shift 2
@@ -1883,6 +1893,7 @@ OPTIONS:
     --no-strict        Disable strict mode (scan only R/, scripts/, analysis/, root)
     --fix              Auto-add missing packages to renv.lock via CRAN API [DEFAULT]
     --no-fix           Report issues without auto-fixing
+    --cleanup-unused   Remove unused packages from DESCRIPTION (for final publication)
     --system-deps      Check for missing system dependencies in Dockerfile
     --verbose, -v      List all missing packages (always enabled with --fix)
     --help, -h         Show this help message
@@ -1924,7 +1935,7 @@ EOF
     done
 
     # Run validation
-    validate_and_report "$strict_mode" "$auto_fix" "$verbose"
+    validate_and_report "$strict_mode" "$auto_fix" "$verbose" "$cleanup_unused"
 }
 
 ##############################################################################
