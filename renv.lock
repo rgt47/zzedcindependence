@@ -50,6 +50,12 @@
       "Version": "1.1.5",
       "Source": "Repository",
       "Repository": "CRAN"
+    },
+    "zzedc": {
+      "Package": "zzedc",
+      "Version": "0.0.1",
+      "Source": "Local",
+      "Path": "~/prj/d06/zzedc"
     }
   }
 }
