@@ -198,6 +198,109 @@ validate_package_on_cran() {
 }
 
 #-----------------------------------------------------------------------------
+# FUNCTION: validate_package_on_bioconductor
+# PURPOSE:  Check if a package exists on Bioconductor
+# DESCRIPTION:
+#   Validates that a package exists on Bioconductor registry.
+#   Bioconductor is a major source for bioinformatics R packages.
+#   Uses the Bioconductor JSON API for validation.
+# ARGS:     $1 - Package name
+# RETURNS:  0 if package exists on Bioconductor
+#           1 if package not found or not reachable
+#-----------------------------------------------------------------------------
+validate_package_on_bioconductor() {
+    local pkg="$1"
+    local bioc_url="https://www.bioconductor.org/packages/json/3.17/${pkg}"
+
+    local response
+    response=$(curl -s -f "$bioc_url" 2>/dev/null)
+    local curl_exit=$?
+
+    if [[ $curl_exit -eq 0 ]] && [[ -n "$response" ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+#-----------------------------------------------------------------------------
+# FUNCTION: validate_package_on_github
+# PURPOSE:  Check if a package exists on GitHub
+# DESCRIPTION:
+#   Validates that a GitHub package reference is valid.
+#   Accepts format: username/repo
+#   Uses GitHub API to verify repository exists.
+#   Note: Doesn't require authentication for basic checks.
+# ARGS:     $1 - Package reference (username/repo format)
+# RETURNS:  0 if repository exists on GitHub
+#           1 if not found or invalid format
+#-----------------------------------------------------------------------------
+validate_package_on_github() {
+    local pkg="$1"
+
+    # Check if it looks like a GitHub reference (contains /)
+    if [[ ! "$pkg" =~ "/" ]]; then
+        return 1
+    fi
+
+    local github_url="https://api.github.com/repos/${pkg}"
+
+    local response
+    response=$(curl -s -f "$github_url" 2>/dev/null)
+    local curl_exit=$?
+
+    if [[ $curl_exit -eq 0 ]] && [[ -n "$response" ]] && [[ ! "$response" =~ "Not Found" ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+#-----------------------------------------------------------------------------
+# FUNCTION: is_installable_package
+# PURPOSE:  Check if a package is installable from standard repositories
+# DESCRIPTION:
+#   Comprehensive validation that checks multiple package sources:
+#   1. CRAN (most common)
+#   2. Bioconductor (bioinformatics packages)
+#   3. GitHub (username/repo format)
+#
+#   Returns 0 if package is found in ANY of these sources.
+#   Returns 1 if package not found in any source (likely local/non-standard).
+#
+#   This prevents false positives from non-installable packages.
+# ARGS:     $1 - Package name or reference
+# RETURNS:  0 if installable from standard source
+#           1 if not found in any standard source
+# SIDE EFFECTS: None
+#-----------------------------------------------------------------------------
+is_installable_package() {
+    local pkg="$1"
+
+    # Try CRAN first (fastest, most common)
+    if validate_package_on_cran "$pkg"; then
+        log_debug "  ✅ $pkg (found on CRAN)"
+        return 0
+    fi
+
+    # Try Bioconductor
+    if validate_package_on_bioconductor "$pkg"; then
+        log_debug "  ✅ $pkg (found on Bioconductor)"
+        return 0
+    fi
+
+    # Try GitHub (must be username/repo format)
+    if validate_package_on_github "$pkg"; then
+        log_debug "  ✅ $pkg (found on GitHub)"
+        return 0
+    fi
+
+    # Not found in any standard source
+    log_debug "  ❌ $pkg (not in CRAN/Bioconductor/GitHub)"
+    return 1
+}
+
+#-----------------------------------------------------------------------------
 # FUNCTION: add_package_to_description
 # PURPOSE:  Add package to DESCRIPTION Imports field using pure shell tools
 # ARGS:     $1 - Package name
@@ -1369,70 +1472,69 @@ report_and_fix_missing_lock() {
         return 0
     fi
 
-    # UPFRONT CRAN VALIDATION: Filter packages into CRAN vs non-CRAN
-    local cran_packages=()
-    local non_cran_packages=()
+    # UPFRONT INSTALLABLE PACKAGE VALIDATION: Check CRAN, Bioconductor, GitHub
+    local installable_packages=()
+    local non_installable_packages=()
 
-    log_info "Validating ${#missing_ref[@]} packages against CRAN..."
+    log_info "Validating ${#missing_ref[@]} packages against CRAN/Bioconductor/GitHub..."
     for pkg in "${missing_ref[@]}"; do
-        if validate_package_on_cran "$pkg"; then
-            cran_packages+=("$pkg")
-            log_debug "  ✅ $pkg (found on CRAN)"
+        if is_installable_package "$pkg"; then
+            installable_packages+=("$pkg")
         else
-            non_cran_packages+=("$pkg")
-            log_debug "  ℹ️  $pkg (not on CRAN - local/GitHub/BioConductor)"
+            non_installable_packages+=("$pkg")
+            log_debug "  ⚠️  $pkg (not found in any standard repository)"
         fi
     done
 
-    # If no CRAN packages and no non-CRAN packages, we're done
-    if [[ ${#cran_packages[@]} -eq 0 ]] && [[ ${#non_cran_packages[@]} -eq 0 ]]; then
+    # If no packages found in any category, we're done
+    if [[ ${#installable_packages[@]} -eq 0 ]] && [[ ${#non_installable_packages[@]} -eq 0 ]]; then
         return 0
     fi
 
     # Report findings
-    if [[ ${#cran_packages[@]} -gt 0 ]]; then
-        log_error "Found ${#cran_packages[@]} CRAN packages missing from renv.lock"
+    if [[ ${#installable_packages[@]} -gt 0 ]]; then
+        log_error "Found ${#installable_packages[@]} installable packages (CRAN/Bioconductor/GitHub) missing from renv.lock"
     fi
-    if [[ ${#non_cran_packages[@]} -gt 0 ]]; then
-        log_warn "Found ${#non_cran_packages[@]} non-CRAN packages (skipping validation)"
+    if [[ ${#non_installable_packages[@]} -gt 0 ]]; then
+        log_warn "Found ${#non_installable_packages[@]} non-installable packages (skipping validation)"
     fi
 
     # List packages if verbose mode or auto-fix mode
-    if [[ "${#cran_packages[@]}" -gt 0 ]] && ([[ "$verbose" == "true" ]] || [[ "$auto_fix" == "true" ]]); then
+    if [[ "${#installable_packages[@]}" -gt 0 ]] && ([[ "$verbose" == "true" ]] || [[ "$auto_fix" == "true" ]]); then
         echo ""
-        echo "CRAN packages to add:"
-        for pkg in "${cran_packages[@]}"; do
+        echo "Installable packages to add:"
+        for pkg in "${installable_packages[@]}"; do
             echo "  - $pkg"
         done
     fi
-    if [[ "${#non_cran_packages[@]}" -gt 0 ]] && ([[ "$verbose" == "true" ]] || [[ "$auto_fix" == "true" ]]); then
+    if [[ "${#non_installable_packages[@]}" -gt 0 ]] && ([[ "$verbose" == "true" ]] || [[ "$auto_fix" == "true" ]]); then
         echo ""
-        echo "Non-CRAN packages (will be skipped):"
-        for pkg in "${non_cran_packages[@]}"; do
+        echo "Non-installable packages (will be skipped):"
+        for pkg in "${non_installable_packages[@]}"; do
             echo "  - $pkg"
         done
     fi
     echo ""
 
-    # Only report reproducibility issue if we have CRAN packages missing
-    if [[ ${#cran_packages[@]} -gt 0 ]]; then
-        echo "CRAN packages break reproducibility! Collaborators cannot restore your environment."
+    # Only report reproducibility issue if we have installable packages missing
+    if [[ ${#installable_packages[@]} -gt 0 ]]; then
+        echo "Missing installable packages break reproducibility! Collaborators cannot restore your environment."
         echo ""
     fi
 
-    # Handle CRAN packages
-    if [[ "$auto_fix" == "true" ]] && [[ ${#cran_packages[@]} -gt 0 ]]; then
-        log_info "Auto-fixing: Adding ${#cran_packages[@]} CRAN packages to renv.lock..."
+    # Handle installable packages
+    if [[ "$auto_fix" == "true" ]] && [[ ${#installable_packages[@]} -gt 0 ]]; then
+        log_info "Auto-fixing: Adding ${#installable_packages[@]} installable packages to renv.lock..."
         local failed_packages=()
 
-        for pkg in "${cran_packages[@]}"; do
+        for pkg in "${installable_packages[@]}"; do
             if ! add_package_to_renv_lock "$pkg"; then
                 failed_packages+=("$pkg")
             fi
         done
 
         if [[ ${#failed_packages[@]} -eq 0 ]]; then
-            log_success "✅ All CRAN packages added to renv.lock"
+            log_success "✅ All installable packages added to renv.lock"
             echo ""
             echo "Next steps:"
             echo "  1. Start R to auto-install packages: make r"
@@ -1442,15 +1544,15 @@ report_and_fix_missing_lock() {
         else
             log_error "Failed to add packages: ${failed_packages[*]}"
             echo ""
-            echo "These CRAN packages may have network issues. Add them manually:"
+            echo "These packages may have network issues. Add them manually:"
             echo "  make docker-zsh"
             local pkg_vector=$(format_r_package_vector "${failed_packages[@]}")
             echo "  R> renv::install($pkg_vector)"
             echo "  R> quit()"
         fi
-    elif [[ "$auto_fix" != "true" ]] && [[ ${#cran_packages[@]} -gt 0 ]]; then
-        local pkg_vector=$(format_r_package_vector "${cran_packages[@]}")
-        echo "Fix CRAN packages with auto-fix flag:"
+    elif [[ "$auto_fix" != "true" ]] && [[ ${#installable_packages[@]} -gt 0 ]]; then
+        local pkg_vector=$(format_r_package_vector "${installable_packages[@]}")
+        echo "Fix installable packages with auto-fix flag:"
         echo "  bash modules/validation.sh --fix"
         echo ""
         echo "Or manually in container:"
@@ -1459,23 +1561,24 @@ report_and_fix_missing_lock() {
         echo "  R> quit()"
     fi
 
-    # Handle non-CRAN packages
-    if [[ ${#non_cran_packages[@]} -gt 0 ]]; then
+    # Handle non-installable packages
+    if [[ ${#non_installable_packages[@]} -gt 0 ]]; then
         echo ""
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo "Non-CRAN packages detected (local/GitHub/BioConductor):"
+        echo "Non-installable packages detected (not in CRAN/Bioconductor/GitHub):"
         echo ""
-        for pkg in "${non_cran_packages[@]}"; do
+        for pkg in "${non_installable_packages[@]}"; do
             echo "  • $pkg"
         done
         echo ""
-        echo "These packages must be installed manually in your Docker container:"
+        echo "These packages must be handled manually in your Docker container:"
         echo ""
         echo "  Option 1: Local package (development)"
         echo "    • Ensure it's available locally: /path/to/$pkg"
         echo "    • Install in R: remotes::install_local('/path/to/$pkg')"
         echo ""
         echo "  Option 2: GitHub package"
+        echo "    • Use format 'owner/repo' in DESCRIPTION or:"
         echo "    • Install in R: remotes::install_github('owner/repo')"
         echo ""
         echo "  Option 3: BioConductor package"
@@ -1487,19 +1590,19 @@ report_and_fix_missing_lock() {
     fi
 
     # Determine return code:
-    # 0 if: no CRAN packages left, OR all CRAN packages successfully fixed
-    # 1 if: CRAN packages exist and auto-fix is disabled, OR some CRAN packages failed
-    if [[ ${#cran_packages[@]} -eq 0 ]]; then
-        # No CRAN packages (only non-CRAN, which are handled gracefully)
+    # 0 if: no installable packages left, OR all installable packages successfully fixed
+    # 1 if: installable packages exist and auto-fix is disabled, OR some installable packages failed
+    if [[ ${#installable_packages[@]} -eq 0 ]]; then
+        # No installable packages (only non-installable, which are handled gracefully)
         return 0
     elif [[ "$auto_fix" != "true" ]]; then
-        # CRAN packages exist but auto-fix disabled
+        # Installable packages exist but auto-fix disabled
         return 1
     elif [[ ${#failed_packages[@]} -eq 0 ]]; then
-        # CRAN packages all successfully fixed
+        # Installable packages all successfully fixed
         return 0
     else
-        # Some CRAN packages failed
+        # Some installable packages failed
         return 1
     fi
 }
