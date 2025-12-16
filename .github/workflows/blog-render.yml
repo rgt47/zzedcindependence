@@ -43,54 +43,33 @@ jobs:
             -v ${{ github.workspace }}:/home/analyst/project \
             -w /home/analyst/project \
             --user root \
-            blog-env bash -c '
-              # Fix permissions for mounted volume (GitHub Actions)
-              chown -R analyst:analyst /home/analyst/project
-              mkdir -p /home/analyst/project/renv
-              chown -R analyst:analyst /home/analyst/project/renv
-
-              # Restore packages as analyst user
-              su - analyst -c "cd /home/analyst/project && Rscript -e \"
-                options(warn = 1)
-                renv::restore(prompt = FALSE)
-                cat(\"[OK] Packages restored\\n\")
-              \"" 2>&1
-            '
+            blog-env bash -c 'chown -R analyst:analyst /home/analyst/project && mkdir -p /home/analyst/project/renv && chown -R analyst:analyst /home/analyst/project/renv && su - analyst -c "cd /home/analyst/project && Rscript -e \"options(warn=1); renv::restore(prompt=FALSE)\"" 2>&1'
 
       # Step 5: Render Quarto blog post
       - name: Render Quarto report
         run: |
-          echo "🎨 Rendering Quarto blog post..."
+          echo "Rendering Quarto blog post..."
           docker run --rm \
             -v ${{ github.workspace }}:/home/analyst/project \
             -w /home/analyst/project \
             --user root \
-            blog-env bash -c '
-              # Fix permissions
-              chown -R analyst:analyst /home/analyst/project
-
-              # Render as analyst user
-              su - analyst -c "cd /home/analyst/project && quarto render analysis/paper/index.qmd --to html 2>&1" || {
-                echo "❌ Rendering failed - check code and image paths"
-                exit 1
-              }
-            '
+            blog-env bash -c 'chown -R analyst:analyst /home/analyst/project && su - analyst -c "cd /home/analyst/project && quarto render analysis/paper/index.qmd --to html 2>&1" || { echo "Rendering failed - check code and image paths"; exit 1; }'
 
       # Step 6: Verify rendered output
       - name: Verify rendered output
         run: |
-          echo "✅ Checking rendered HTML..."
+          echo "Checking rendered HTML..."
           if [ -f "analysis/paper/index.html" ]; then
             SIZE=$(stat -c%s "analysis/paper/index.html" 2>/dev/null || stat -f%z "analysis/paper/index.html" 2>/dev/null)
             if [ "$SIZE" -gt 1000 ]; then
-              echo "✅ Blog post rendered successfully ($SIZE bytes)"
+              echo "Blog post rendered successfully ($SIZE bytes)"
               exit 0
             else
-              echo "❌ Rendered HTML is too small (likely empty)"
+              echo "Rendered HTML is too small (likely empty)"
               exit 1
             fi
           else
-            echo "❌ Rendered HTML not found at analysis/paper/index.html"
+            echo "Rendered HTML not found at analysis/paper/index.html"
             exit 1
           fi
 
@@ -107,31 +86,28 @@ jobs:
       - name: Create success summary
         if: success()
         run: |
-          echo "## ✅ Blog Post Rendered Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "## Blog Post Rendered Successfully" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Output Location:** \`analysis/paper/index.html\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Output Location:** analysis/paper/index.html" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**What was tested:**" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Docker environment built" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ R packages restored from renv.lock" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Quarto document rendered to HTML" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Output file verified" >> $GITHUB_STEP_SUMMARY
+          echo "- Docker environment built" >> $GITHUB_STEP_SUMMARY
+          echo "- R packages restored from renv.lock" >> $GITHUB_STEP_SUMMARY
+          echo "- Quarto document rendered to HTML" >> $GITHUB_STEP_SUMMARY
+          echo "- Output file verified" >> $GITHUB_STEP_SUMMARY
 
       # Step 9: Create failure summary
       - name: Create failure summary
         if: failure()
         run: |
-          echo "## ❌ Blog Post Rendering Failed" >> $GITHUB_STEP_SUMMARY
+          echo "## Blog Post Rendering Failed" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Possible issues:**" >> $GITHUB_STEP_SUMMARY
-          echo "1. **Syntax error in Quarto:** Check \`analysis/paper/index.qmd\` for YAML or markdown issues" >> $GITHUB_STEP_SUMMARY
-          echo "2. **Missing images:** Verify image paths use \`media/images/\` (not \`img/\`)" >> $GITHUB_STEP_SUMMARY
-          echo "3. **Missing packages:** Check \`renv.lock\` has required packages" >> $GITHUB_STEP_SUMMARY
-          echo "4. **R code error:** Review R code in analysis/paper/index.qmd" >> $GITHUB_STEP_SUMMARY
+          echo "1. Syntax error in Quarto - Check analysis/paper/index.qmd for YAML or markdown issues" >> $GITHUB_STEP_SUMMARY
+          echo "2. Missing images - Verify image paths are correct and files exist" >> $GITHUB_STEP_SUMMARY
+          echo "3. Missing packages - Check renv.lock has required packages" >> $GITHUB_STEP_SUMMARY
+          echo "4. R code error - Review R code in analysis/paper/index.qmd" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Local debugging:**" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
-          echo "make docker-run  # Start interactive session" >> $GITHUB_STEP_SUMMARY
-          echo "cd analysis/paper" >> $GITHUB_STEP_SUMMARY
-          echo "quarto render index.qmd --to html" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "Run: make docker-run  # Start interactive session" >> $GITHUB_STEP_SUMMARY
+          echo "Then: cd analysis/paper && quarto render index.qmd --to html" >> $GITHUB_STEP_SUMMARY
