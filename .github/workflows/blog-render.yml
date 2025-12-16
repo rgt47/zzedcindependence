@@ -31,14 +31,14 @@ jobs:
       # Step 3: Build Docker image
       - name: Build Docker image
         run: |
-          echo "🐳 Building computational environment..."
+          echo "Building computational environment..."
           docker build -t blog-env .
-          echo "✅ Docker image built successfully"
+          echo "Docker image built successfully"
 
       # Step 4: Restore R packages from renv.lock
       - name: Restore R packages
         run: |
-          echo "📦 Restoring R packages from renv.lock..."
+          echo "Restoring R packages from renv.lock..."
           docker run --rm \
             -v ${{ github.workspace }}:/home/analyst/project \
             -w /home/analyst/project \
@@ -53,7 +53,7 @@ jobs:
               su - analyst -c "cd /home/analyst/project && Rscript -e \"
                 options(warn = 1)
                 renv::restore(prompt = FALSE)
-                cat(\"✅ Packages restored\n\")
+                cat(\"[OK] Packages restored\\n\")
               \"" 2>&1
             '
 
