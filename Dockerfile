@@ -34,7 +34,9 @@ ENV LANG=en_US.UTF-8 \
     RENV_CONFIG_REPOS_OVERRIDE="https://packagemanager.posit.co/cran/__linux__/noble/latest" \
     ZZCOLLAB_CONTAINER=true
 
-# Install runtime and build dependencies (pinned to Ubuntu Noble 24.04)
+# Install runtime and build dependencies
+# Version pins removed — base image (rocker/r-ver:4.5.1) pins the OS
+# snapshot; unpinned packages track the latest patch for that release.
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
     set -ex && \
@@ -43,28 +45,29 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         build-essential \
         pkg-config \
         jq \
-        libcurl4-openssl-dev=8.5.0-2ubuntu10.6 \
-        libssl-dev=3.0.13-0ubuntu3.6 \
-        libxml2-dev=2.9.14+dfsg-1.3ubuntu3.6 \
+        libcurl4-openssl-dev \
+        libssl-dev \
+        libxml2-dev \
         libwebp-dev \
         xauth \
         libx11-6 \
         libxt6 \
         libcairo2 \
-        libfontconfig1=2.15.0-1.1ubuntu2 \
-        libfreetype6=2.13.2+dfsg-1build3 \
-        libpng16-16t64=1.6.43-5build1 \
-        libjpeg8=8c-2ubuntu11 \
-        libicu74 \
+        libfontconfig1-dev \
+        libfreetype-dev \
+        libpng-dev \
+        libjpeg-dev \
+        libicu-dev \
         pandoc \
         wget \
         gdebi-core
 
 # Install Quarto from official binary (not in standard repositories)
+ARG QUARTO_VERSION=1.6.43
 RUN set -ex && \
-    wget -q https://github.com/quarto-dev/quarto-cli/releases/download/v1.3.450/quarto-1.3.450-linux-amd64.deb && \
-    gdebi -n quarto-1.3.450-linux-amd64.deb && \
-    rm quarto-1.3.450-linux-amd64.deb
+    wget -q "https://github.com/quarto-dev/quarto-cli/releases/download/v${QUARTO_VERSION}/quarto-${QUARTO_VERSION}-linux-amd64.deb" && \
+    gdebi -n "quarto-${QUARTO_VERSION}-linux-amd64.deb" && \
+    rm "quarto-${QUARTO_VERSION}-linux-amd64.deb"
 
 # Configure R to use Posit Package Manager (pre-compiled Ubuntu binaries)
 RUN echo "options(repos = c(CRAN = 'https://packagemanager.posit.co/cran/__linux__/noble/latest'))" \
