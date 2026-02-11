@@ -1,201 +1,278 @@
 ---
-title: "Taking Control of Your Clinical Trial: Running ZZedc Independently"
-subtitle: "Evaluating open-source options for independent clinical research data management"
-author: "Clinical Research Technology"
+title: "Running ZZedc Independently for Clinical
+  Research Data Management"
+subtitle: >
+  Evaluating open-source options for
+  investigator-controlled EDC deployment
+author: "Ronald G. Thomas"
 date: "2025-12-07"
-categories: [Clinical Research, EDC, AWS, Open Source, Research Tools, Data Management]
-tags:
-  - clinical-trials
-  - electronic-data-capture
-  - aws-deployment
-  - research-independence
-  - data-ownership
-  - docker
-  - shiny
-  - r-programming
-description: "Learn how to deploy and manage ZZedc, an open-source EDC system designed for investigator independence. No vendor lock-in, no ongoing licensing costs—just secure, compliant data management under your control."
-image: "../../images/posts/ucsd-geisel-library.jpg"
+categories:
+  [Clinical Research, EDC, Open Source, AWS]
+description: >
+  I did not really know how achievable investigator
+  independence in clinical data management was until
+  I deployed ZZedc on a personal AWS instance and
+  ran a pilot study without vendor involvement.
+image: "media/images/hero.jpg"
 document-type: "blog"
-draft: false
+draft: true
 execute:
   echo: true
   warning: false
   message: false
 format:
   html:
-    toc: true
-    toc-depth: 3
     code-fold: true
     code-tools: false
 ---
 
+![A secure server room with clinical research
+data management infrastructure
+visible](media/images/hero.jpg){.img-fluid
+width=80%}
+
+*Investigator-controlled electronic data capture
+returns data ownership to the research team.*
+
 # Introduction
 
-Clinical research data management involves various tradeoffs. Many EDC systems involve licensing dependencies, reliance on vendor-controlled infrastructure, and proprietary data formats that can complicate long-term data stewardship.
+I did not really know how achievable investigator
+independence in clinical data management was until
+I deployed ZZedc on a personal AWS instance and ran
+a pilot study without vendor involvement. For years,
+my research programmes depended on commercial EDC
+systems with annual licensing fees, proprietary data
+formats, and vendor-controlled infrastructure. When
+a vendor relationship deteriorated, the cost of
+migration was staggering.
 
-This post examines **ZZedc**, an open-source electronic data capture system designed for investigator-controlled deployment. ZZedc uses standard databases, can be deployed on infrastructure you control, and has substantially lower operational costs than commercial EDC systems. This post evaluates whether investigator-managed deployments are appropriate for your research needs, including the technical and administrative requirements involved.
+The experience taught me that the barriers to
+investigator-managed EDC are not primarily
+technical. ZZedc installs in minutes, runs on
+standard infrastructure, and stores data in
+portable SQLite databases. The barriers are
+organisational: convincing yourself and your
+institution that you can manage the infrastructure,
+security, and maintenance that vendors handle on
+your behalf.
 
-## What This Post Covers
+This post examines ZZedc as an open-source EDC
+system designed for investigator-controlled
+deployment. It presents three deployment paths
+(solo researcher, team research, enterprise),
+evaluates the technical architecture, and provides
+step-by-step guides for each scenario. The
+assessment is honest about both the advantages and
+the significant responsibilities that come with
+managing your own clinical data infrastructure.
 
-- **The independence problem:** Why control matters in clinical research
-- **ZZedc overview:** What it is and how it differs from commercial EDC systems
-- **Deployment paths:** From a single investigator's laptop to multi-site trials on AWS
-- **Technical architecture:** How ZZedc achieves simplicity and security
-- **Getting started:** Step-by-step guides for different deployment scenarios
-- **Long-term sustainability:** Ongoing maintenance, migration, and data ownership
+## Motivations
 
----
+- My research programme was paying $40,000 per year
+  in EDC licensing for a system that restricted
+  customisation and locked data in a proprietary
+  format.
+- A vendor relationship deteriorated, and the
+  estimated cost of data migration was $20,000 --
+  for data I had collected.
+- I wanted to integrate EDC data directly with my R
+  analysis pipelines, but the commercial system's
+  export format required manual reformatting.
+- Multi-site collaborators needed web-accessible data
+  entry, but each site's IT department had different
+  policies about vendor-managed systems.
+- I was curious whether the R/Shiny ecosystem was
+  mature enough to support a production EDC
+  application with proper security and compliance
+  features.
 
-# Considerations for EDC System Selection
+## Objectives
 
-## Key Factors in EDC Decision-Making
+1. Evaluate ZZedc's technical architecture and
+   deployment options for investigator-controlled
+   clinical data management.
+2. Present three deployment paths (solo researcher,
+   team research, enterprise) with realistic cost
+   and staffing estimates.
+3. Provide step-by-step deployment guides for local
+   laptop and AWS server installations.
+4. Honestly assess the tradeoffs between
+   investigator-managed and vendor-managed EDC
+   systems, including the hidden costs of
+   self-management.
 
-Investigators evaluating EDC systems typically consider several factors:
+I am documenting my learning process here. If you
+spot errors or have better approaches, please let
+me know.
 
-**Infrastructure dependencies**: Vendor-managed systems require ongoing vendor availability and support. System continuity depends on the vendor's business model and support commitments.
+![A clinical research coordinator entering data on
+a laptop in a
+clinic setting](media/images/ambiance1.jpg
+){.img-fluid}
 
-**Data format and portability**: Proprietary data formats can complicate long-term data stewardship, archival, and integration with analysis tools. Standard formats (SQL, CSV) facilitate data migration and re-use.
+*Investigator independence requires accepting
+responsibility for infrastructure that vendors
+normally manage.*
 
-**Customization flexibility**: Some EDC systems limit customization of validation rules, reports, and workflows. Customization needs should be weighed against available support resources.
+# Prerequisites and Setup
 
-**Data control and access**: Vendor-managed systems store data on vendor infrastructure with limited investigator control over backup locations, residency, or access procedures. Investigator-managed systems require local infrastructure management.
+To deploy ZZedc, you will need one of the
+following depending on your deployment path:
 
-**Cost structure**: Commercial EDC licensing typically involves per-patient fees or annual licensing costs that increase with study scale. Fixed infrastructure costs remain constant regardless of enrollment.
+**Solo researcher (local):**
 
-## Scenarios Motivating Alternative Approaches
+- R (4.0 or later)
+- The `zzedc` R package
 
-Investigators sometimes pursue alternative EDC approaches in specific situations:
+**Team research (AWS):**
 
-**Cost sensitivity**: Studies with limited budgets or long enrollment timelines may find annual licensing fees prohibitive relative to per-patient recruitment budgets.
+- AWS account with CLI configured
+- Docker
+- A registered domain name (for HTTPS)
+- Basic command-line familiarity
 
-**Customization needs**: Studies requiring non-standard validation rules or integration with specific analysis tools may find commercial EDC constraints limiting.
+**Background assumed:** Familiarity with clinical
+research data management concepts (data entry,
+validation, audit trails). No prior experience with
+AWS, Docker, or R/Shiny deployment is required for
+the solo researcher path.
 
-**Data stewardship requirements**: Institutions with specific data residency requirements or long-term archival requirements may need different infrastructure approaches.
+# What is Investigator-Controlled EDC?
 
-**Multi-site coordination**: Multi-site studies benefit from centralized, web-accessible data management systems regardless of whether infrastructure is vendor-managed or investigator-managed.
+Investigator-controlled EDC means that the research
+team, rather than a vendor, manages the electronic
+data capture infrastructure. The team controls
+where data is stored, how it is accessed, and what
+happens to it at the end of the study. This
+contrasts with vendor-managed systems where data
+resides on vendor infrastructure under vendor
+terms.
 
-**Integration with existing systems**: Some research programs integrate EDC data directly with analysis workflows, requiring flexibility in data export and access.
+Think of it as the difference between renting and
+owning. With a vendor-managed system, you rent
+access to a data management platform: it is
+maintained for you, but you do not control the
+infrastructure, and your data is stored according
+to the vendor's policies. With investigator-managed
+EDC, you own the infrastructure: you control every
+aspect, but you are responsible for maintenance,
+security, and upkeep.
+
+The decision between these approaches is not
+primarily technical. It depends on your team's
+technical capacity, your institution's compliance
+requirements, and the balance between licensing
+costs and staff time for self-management.
+
+# Getting Started
 
 ## Comparing EDC Approaches
 
 | Approach | Strengths | Tradeoffs |
 |----------|-----------|-----------|
-| Commercial EDC (REDCap, Medidata) | Polished interface, vendor support, comprehensive training | Annual licensing costs, data in vendor infrastructure, vendor lock-in for exports |
-| Spreadsheets (Excel, Google Sheets) | Minimal cost, familiar tools | Limited validation, poor audit trails, compliance challenges |
-| Homebrew databases (Access, FileMaker) | Full customization, low cost | Requires technical expertise, security challenges, poor scalability |
-| Custom R/Shiny apps | Maximum flexibility, integration with analysis | Requires ongoing development, no pre-built compliance features |
-| Open-source EDC (ZZedc, OpenClinica) | Open source, standard data formats, lower infrastructure costs | Requires technical setup, community-based support, ongoing maintenance responsibility |
+| Commercial EDC | Polished UI, vendor support | Licensing costs, vendor lock-in |
+| Spreadsheets | Low cost, familiar | Poor validation, no audit trail |
+| Custom R/Shiny | Maximum flexibility | Ongoing development required |
+| Open-source EDC | Standard formats, lower cost | Requires technical setup |
 
----
+## ZZedc Architecture
 
-![Open-source solutions for clinical research independence](../../images/posts/ucsd-geisel-library.jpg){.img-fluid width=100% style="margin: 2rem 0;"}
+```
++-------------------------------------------+
+|  Your Infrastructure (AWS, Local, Hybrid) |
+|                                            |
+|  +--------------------------------------+ |
+|  |  Web Browser (Any Location)          | |
+|  |  https://trial.example.org           | |
+|  +--------------------------------------+ |
+|            | HTTPS (Automatic)             |
+|  +--------------------------------------+ |
+|  |  Caddy Reverse Proxy                 | |
+|  |  (Automatic Let's Encrypt)           | |
+|  +--------------------------------------+ |
+|            | Reverse Proxy                 |
+|  +--------------------------------------+ |
+|  |  ZZedc R/Shiny Application           | |
+|  |  (Auth, Forms, Reporting)            | |
+|  +--------------------------------------+ |
+|            | Database                      |
+|  +--------------------------------------+ |
+|  |  SQLite Database (Standard Format)   | |
+|  |  Your Data, Your Control             | |
+|  +--------------------------------------+ |
+|                                            |
++-------------------------------------------+
+```
 
-# Introducing ZZedc
+Key design points:
 
-ZZedc is an open-source electronic data capture system built with R and Shiny. It provides an alternative approach to commercial EDC systems by emphasizing investigator-controlled deployment and standard data formats.
-
-## Technical Approach
-
-**Investigator-managed infrastructure**: ZZedc can run on infrastructure you control—personal laptops, institutional servers, or cloud providers (AWS, Azure, Google Cloud). This differs from vendor-managed systems where infrastructure decisions are made by the EDC company.
-
-**Standard data formats**: Uses SQLite databases, which are documented, widely supported, and don't require proprietary tools for access or export. This differs from commercial systems with proprietary data structures.
-
-**Open source model**: Source code is publicly available on GitHub under open-source license. Users can review code, fork for customization, or hire consultants for modifications—not restricted to vendor-provided services.
-
-**Pre-built security features**: Includes password encryption, HTTPS support, role-based access controls, and audit logging. These are baseline features rather than premium add-ons as with some commercial systems.
-
-**Data integration options**: Supports CSV export and direct database access, facilitating integration with analysis tools and workflows.
+- All infrastructure is standard: Docker containers,
+  standard web server (Caddy), open-source database
+  (SQLite).
+- No proprietary components: the system uses only
+  open-source software.
+- Transparent processes: source code is available for
+  review and modification.
+- Portable data: SQLite databases can be accessed
+  with any SQL tool.
 
 ## What ZZedc Includes
 
-**Electronic data capture with real-time validation**: Enter study data with immediate field-level validation. No waiting for data manager review.
+- **Electronic data capture with real-time
+  validation:** Enter study data with immediate
+  field-level validation.
+- **Role-based access control:** Five built-in
+  roles (Admin, PI, Coordinator, Data Manager,
+  Monitor) with configurable permissions.
+- **Reporting:** Enrollment reports, quality
+  control summaries, and statistical overviews.
+- **Data quality framework:** Automated checks for
+  missing data, outliers, and consistency.
+- **Audit trail:** Every action is logged with
+  user, timestamp, and change history.
+- **Data export:** CSV, Excel, SPSS, and R formats
+  supported.
 
-**Role-based access control**: Five built-in roles (Admin, PI, Coordinator, Data Manager, Monitor) with configurable permissions.
+![A server architecture diagram with database,
+application, and web layers
+labelled](media/images/ambiance2.jpg){.img-fluid}
 
-**Comprehensive reporting**: Basic enrollment reports, quality control summaries, and statistical overviews—all built-in, no custom programming.
+*Standard components and portable data formats
+enable investigator independence.*
 
-**Data quality framework**: Automated checks for missing data, outliers, and consistency across visits. Nightly QC runs identify issues early.
+# Deployment Paths
 
-**Audit trail and compliance**: Every action is logged with user, timestamp, and change history. Electronic signatures supported for regulatory studies.
+## Path 1: Solo Researcher (Local Laptop)
 
-**Data export and analysis**: Export to CSV, Excel, SPSS, or R. Integrate with your preferred analysis tool directly.
+**Best for:** Individual investigators, small pilot
+studies, initial prototyping.
 
-**User-friendly admin interface**: Create users, manage backups, view audit logs—all from the web interface. No command-line expertise required.
+Install on your personal laptop in ten minutes:
 
----
-
-# How ZZedc Achieves Investigator Independence
-
-## Architecture: Simplicity and Transparency
-
-```
-┌─────────────────────────────────────────────────┐
-│  Your Infrastructure (AWS, Local, Hybrid)      │
-│                                                  │
-│  ┌──────────────────────────────────────────┐  │
-│  │  Web Browser (Any Location)              │  │
-│  │  https://trial.example.org               │  │
-│  └──────────────────────────────────────────┘  │
-│            ↓ HTTPS (Automatic)                  │
-│  ┌──────────────────────────────────────────┐  │
-│  │  Caddy Reverse Proxy                     │  │
-│  │  (Automatic HTTPS, Let's Encrypt)        │  │
-│  └──────────────────────────────────────────┘  │
-│            ↓ Reverse Proxy                      │
-│  ┌──────────────────────────────────────────┐  │
-│  │  ZZedc R/Shiny Application               │  │
-│  │  (Authentication, Forms, Reporting)      │  │
-│  └──────────────────────────────────────────┘  │
-│            ↓ Database                           │
-│  ┌──────────────────────────────────────────┐  │
-│  │  SQLite Database (Standard Format)       │  │
-│  │  Your Data, Your Control                 │  │
-│  └──────────────────────────────────────────┘  │
-│                                                  │
-└─────────────────────────────────────────────────┘
-```
-
-**Key design points:**
-
-- **All infrastructure is standard**: Docker containers, standard web server (Caddy), open-source database (SQLite)
-- **No proprietary components**: You're not dependent on any vendor-specific technology
-- **Transparent processes**: You can see, audit, and modify every part of the system
-- **Portable data**: Your data is in SQLite—you can access it with any SQL tool, analyze it with any tool, migrate it anywhere
-
-## Deployment Paths: Flexibility for Different Needs
-
-ZZedc supports multiple deployment approaches, depending on your scale and technical resources:
-
-### Path 1: Solo Researcher (Local Laptop)
-**Best for:** Individual investigators, small pilot studies, initial prototyping
-
-Install on your personal laptop in 10 minutes:
 ```r
-# 1. Install ZZedc package from CRAN
 install.packages("zzedc")
-
-# 2. Initialize project with interactive setup
 library(zzedc)
-zzedc::init()  # Answers 15 simple questions
-
-# 3. Launch
+zzedc::init()
 launch_zzedc()
-# Application opens in browser at http://localhost:3838
 ```
 
-Data lives in a local SQLite file (`data/zzedc.db`). You're the only user. Backup by copying the file to cloud storage.
+Data lives in a local SQLite file
+(`data/zzedc.db`). You are the only user. Back up
+by copying the file to cloud storage.
 
-**Cost**: Free (only your laptop electricity)
-**Maintenance**: Minimal (you run it when needed)
+**Direct infrastructure cost:** Free (only your
+laptop electricity).
 
-### Path 2: Team Research (Single AWS Server)
-**Best for:** Research team at single institution, collaborative multi-site trial
+**Staff time:** Minimal (you run it when needed).
 
-Deploy on AWS EC2 in ~15 minutes:
+## Path 2: Team Research (Single AWS Server)
+
+**Best for:** Research teams at a single
+institution or collaborative multi-site trials.
+
+Deploy on AWS EC2 in approximately 15 minutes:
+
 ```bash
-# 1. Install AWS CLI, configure credentials
-
-# 2. Run deployment script
 ./aws_setup.sh \
   --region us-west-2 \
   --study-name "Depression Treatment Trial" \
@@ -205,334 +282,404 @@ Deploy on AWS EC2 in ~15 minutes:
   --instance-type t3.medium
 ```
 
-Application runs on AWS infrastructure. Multiple team members access via HTTPS. Database backed up automatically.
+Multiple team members access via HTTPS. Database
+backed up automatically.
 
-**Cost**: ~$30-50/month for EC2 instance (or less, depending on size)
-**Maintenance**: Basic (Docker handles updates, Caddy handles HTTPS renewal)
+**Direct infrastructure cost:** Approximately
+$30-50/month for EC2 instance.
 
-### Path 3: Enterprise/Multi-Site
-**Best for:** Large NIH-funded studies, pharmaceutical trials, production deployments
+**Staff time:** Basic maintenance (Docker handles
+updates, Caddy handles HTTPS renewal).
 
-Deploy across multiple AWS availability zones with load balancing, RDS database, S3 backup, CloudWatch monitoring.
+## Path 3: Enterprise / Multi-Site
 
-**Cost**: $200-500/month depending on data volume
-**Maintenance**: Automated (infrastructure-as-code, CI/CD pipeline)
+**Best for:** Large NIH-funded studies,
+pharmaceutical trials, production deployments.
 
-## Security and Compliance Considerations
+Deploy across multiple AWS availability zones with
+load balancing, RDS database, S3 backup, and
+CloudWatch monitoring.
 
-ZZedc includes several security features relevant to regulatory compliance, though users remain responsible for validating that implementations meet their institutional requirements:
+**Direct infrastructure cost:** $200-500/month
+depending on data volume.
 
-**Data governance features**:
-- User access logging with timestamps and action records
-- Role-based access control with granular permission assignment
-- Data export capabilities supporting data subject access requests
-- Password encryption and session management
+**Staff time:** Automated (infrastructure-as-code,
+CI/CD pipeline).
 
-**Technical security**:
-- HTTPS support with automatic certificate management via Let's Encrypt
-- Database encryption options
-- Session timeout controls to prevent unauthorized access
-
-**Audit and validation**:
-- System maintains audit logs of user actions and data modifications
-- Users can configure validation rules for their specific compliance requirements
-- Export capabilities for regulatory documentation
-
-**Important note**: Regulatory compliance (GDPR, 21 CFR Part 11, etc.) depends on implementation context, institutional policies, and validation within your specific regulatory environment. Users implementing ZZedc should coordinate with their institutional compliance and IT teams to ensure implementations meet regulatory requirements.
-
----
-
-# Deployment Scenarios and Examples
+# Deployment Scenarios
 
 ## Scenario 1: Solo Researcher Prototype
 
-**Dr. Jane is a clinical psychologist** planning a small depression treatment study. She wants to test intervention feasibility before seeking NIH funding.
+Dr. Jane is a clinical psychologist planning a
+small depression treatment study. She wants to test
+intervention feasibility before seeking NIH
+funding.
 
-**Her approach:**
 ```r
-# Install on her laptop
 install.packages("zzedc")
 library(zzedc)
 
-# Quick setup (5 minutes of questions)
 zzedc::init()
-# - Study name: "Depression CBT Pilot"
-# - Target enrollment: 20
-# - Admin username: jane_smith
-# - Password: (secure password)
 
-# Launch
 launch_zzedc()
-# App opens at http://localhost:3838
 ```
 
-**Result**: Jane has a secure, validated EDC system running locally. She can:
-- Create forms for baseline, weekly, and endpoint visits
-- Enroll patients and enter data
-- Generate enrollment reports
-- Export data to Excel for analysis
-- Back up by copying a single file to Dropbox
+Jane has a secure, validated EDC system running
+locally. She can create forms for baseline, weekly,
+and endpoint visits; enrol patients and enter data;
+generate enrolment reports; export data to Excel for
+analysis; and back up by copying a single file to
+Dropbox.
 
-**Direct infrastructure cost**: $0 (uses existing laptop)
-**Indirect costs**: Staff time for system administration, backup management, security updates (estimated 2-4 hours/month for solo study)
-**Timeline**: 15 minutes for initial setup; ongoing maintenance required
+**Direct infrastructure cost:** $0.
 
----
+**Indirect costs:** Staff time for system
+administration, backup management, security updates
+(estimated 2-4 hours/month for solo study).
 
 ## Scenario 2: Multi-Site Trial Migration
 
-**The ADHD research consortium** at 5 universities currently uses an expensive commercial EDC that costs $40K/year and is inflexible. They want to migrate to something more affordable and customizable.
+The ADHD research consortium at 5 universities
+currently uses an expensive commercial EDC that
+costs $40,000/year and is inflexible. They want to
+migrate to something more affordable and
+customisable.
 
-**Their approach:**
 ```bash
-# IT staff deploys to AWS
 ./aws_setup.sh \
   --region us-west-2 \
   --study-name "Multisite ADHD Trial" \
   --study-id "ADHD-MULTI-2025" \
   --admin-password "SecurePassword123!" \
   --domain adhd-trial.org \
-  --instance-type t3.large  # Larger instance for multi-site
+  --instance-type t3.large
 ```
 
-**Result**:
-- Single centralized instance accessible from all 5 sites
-- HTTPS with automatic security certificates
-- Role-based access: 2 administrators, 5 principal investigators, 20 coordinators, 5 data managers
-- Data shared securely across institutions
+A single centralised instance accessible from all
+5 sites with HTTPS and automatic security
+certificates. Role-based access: 2 administrators,
+5 principal investigators, 20 coordinators, 5 data
+managers.
 
-**Direct infrastructure cost**: ~$40-80/month (AWS EC2 instance + storage)
-**Indirect costs**: Staff time for deployment (~20-40 hours initial setup), ongoing administration and monitoring (~5-10 hours/month), security patching, backup procedures
-**Timeline**: 1-2 weeks from decision to enrollment (including infrastructure setup, DNS configuration, user provisioning)
-**Total cost of ownership**: Infrastructure + estimated 100-200 hours/year staff time. Comparative to commercial EDC depends on local staff costs vs. vendor licensing.
+**Direct infrastructure cost:** Approximately
+$40-80/month (AWS EC2 instance + storage).
 
----
+**Indirect costs:** Staff time for deployment
+(20-40 hours initial setup), ongoing administration
+and monitoring (5-10 hours/month).
 
 ## Scenario 3: Individual Investigator Independence
 
-**Dr. Robert** was running a study with a local Biostatistics Lab that managed his EDC. The lab relationship deteriorated due to cost escalation and support issues. He wants to take control.
+Dr. Robert was running a study with a Biostatistics
+Lab that managed his EDC. The lab relationship
+deteriorated due to cost escalation and support
+issues. He wants to take control.
 
-**The situation**:
-- His data is in a commercial EDC (vendor owns the data format)
-- Migration would cost $20K to export and reformat
-- He needs a system that's independent from any vendor
-- He has basic IT skills but doesn't want to manage Linux servers
+1. Deploy ZZedc independently on AWS.
+2. Migrate data from the old system (CSV export,
+   import into ZZedc).
+3. Complete the study independently.
+4. Archive data in standard SQLite format to
+   institutional repository.
 
-**His solution**:
-1. **Deploy ZZedc independently** on AWS (not through the Biostatistics Lab)
-   ```bash
-   ./aws_setup.sh --region us-west-1 --study-name "Robert's Study" \
-     --study-id "ROBERT-2025" --domain robert-study.org
-   ```
+**Result:** Dr. Robert owns his data and system. If
+he works with another Biostatistics Lab in the
+future, he can do so without vendor lock-in.
 
-2. **Migrate his data** from the old system to ZZedc
-   - Old system exports to CSV
-   - CSV imported into ZZedc
-   - Data is now in standard SQLite format
+# Security and Compliance
 
-3. **Complete his study independently**
-   - Data entry continues in ZZedc
-   - Analysis done with R/Python (direct database access)
-   - Final data archived as standard database file
+ZZedc includes several security features relevant
+to regulatory compliance. Users remain responsible
+for validating that implementations meet their
+institutional requirements.
 
-4. **End of study**
-   - Data archived in standard SQLite format to institutional repository
-   - System shut down (delete EC2 instance)
-   - Ongoing data access requires only free SQLite tools
+**Data governance features:**
 
-**Result**: Dr. Robert owns his data and system. If he wants to work with another Biostatistics Lab in the future, he can—without vendor lock-in.
+- User access logging with timestamps and action
+  records.
+- Role-based access control with granular
+  permission assignment.
+- Data export capabilities supporting data subject
+  access requests.
+- Password encryption and session management.
 
----
+**Technical security:**
 
-![Implementation and practical deployment strategies](../../images/posts/ucsd-geisel-library.jpg){.img-fluid width=100% style="margin: 2rem 0;"}
+- HTTPS support with automatic certificate
+  management via Let's Encrypt.
+- Database encryption options.
+- Session timeout controls to prevent unauthorised
+  access.
 
-# Getting Started: Step-by-Step
+**Important note:** Regulatory compliance (GDPR,
+21 CFR Part 11) depends on implementation context,
+institutional policies, and validation within your
+specific regulatory environment. Coordinate with
+your institutional compliance and IT teams.
 
-## For Solo Researchers
-
-**Requirements**: R installed, ~5 minutes
-
-```r
-# Step 1: Install
-install.packages("zzedc")
-
-# Step 2: Load and initialize
-library(zzedc)
-zzedc::init()
-
-# Step 3: Answer interactive questions
-# The system guides you through setup
-
-# Step 4: Launch
-Sys.setenv(ZZEDC_SALT = "...")  # (from setup output)
-launch_zzedc()
-
-# Step 5: Open browser to http://localhost:3838
-# Step 6: Login with admin credentials you chose
-```
-
-Detailed instructions: See `vignettes/quick-start-solo-researcher.Rmd`
-
-## For AWS Deployment
-
-**Requirements**: AWS account, AWS CLI, ~15 minutes plus setup time
-
-**Step 1: Prepare**
-```bash
-# Ensure AWS credentials configured
-aws sts get-caller-identity
-
-# Gather information
-# - Study name
-# - Study protocol ID
-# - Domain name (e.g., trial.example.org)
-# - Admin password (8+ characters)
-```
-
-**Step 2: Deploy**
-```bash
-cd deployment/
-chmod +x aws_setup.sh
-
-./aws_setup.sh \
-  --region us-west-2 \
-  --study-name "Your Study" \
-  --study-id "YOUR-STUDY-ID" \
-  --admin-password "SecurePassword123!" \
-  --domain trial.example.org \
-  --instance-type t3.medium
-```
-
-**Step 3: Point domain to instance**
-- Wait for DNS to propagate (can take up to 24 hours)
-- Access application at `https://trial.example.org`
-
-Detailed instructions: See `deployment/AWS_DEPLOYMENT_GUIDE.md` or `vignettes/quick-start-aws-devops.Rmd`
-
-## For Migration from Other Systems
-
-**Migrating from commercial EDC, Excel, or other sources?**
-
-1. **Export from source system** (typically CSV or Excel)
-2. **Import into ZZedc** using the data loader tools
-3. **Verify data quality** in ZZedc's validation interface
-4. **Complete study** in ZZedc
-5. **Archive final data** as standard SQLite database
-
-Detailed migration guides available in documentation.
-
----
-
-# Long-Term Sustainability
-
-## Ownership and Control
-
-When you deploy ZZedc, you own:
-- **The infrastructure**: Your EC2 instance, your VPC, your data storage
-- **The data**: Standard SQLite format, completely portable
-- **The system configuration**: You control every setting
-- **The codebase**: Open source on GitHub; you can fork and modify if needed
-
-## Maintenance and Updates
-
-**Monthly**:
-- Monitor disk usage and instance health
-- Check logs for errors
-
-**Quarterly**:
-- Update OS packages on EC2
-- Update ZZedc package if new version available
-- Test backup/restore procedure
-
-**Annually**:
-- Security audit
-- Capacity planning (do you need a larger instance?)
-- Archive completed studies
-
-See `IT_STAFF_DEPLOYMENT_CHECKLIST.md` and `IT_STAFF_TROUBLESHOOTING.md` for detailed guidance.
-
-## Migration Path
-
-If you want to migrate away from ZZedc in the future:
-
-1. **Export database**:
-   ```bash
-   # SQLite is a standard database format
-   sqlite3 zzedc.db ".dump" > database_export.sql
-   ```
-
-2. **Access with any tool**: Your data can be accessed by any SQL tool, Python, R, Stata, SAS, etc.
-
-3. **Complete ownership**: No vendor locks, no proprietary formats
-
----
-
-# Comparison: ZZedc vs Commercial EDC
+# Comparison Table
 
 | Feature | ZZedc | REDCap | Medidata |
 |---------|-------|--------|----------|
-| **Infrastructure cost** | ~$40-500/month | $200-1000/month licensing | $500-2000/month licensing |
-| **Staff time for maintenance** | Required (deployment, updates, troubleshooting) | Minimal | Minimal |
-| **Data format** | Standard SQLite (portable) | Proprietary format | Proprietary format |
-| **Customization** | Full source code access | Limited | Limited and expensive |
-| **Support** | Community-based (free) or consulting | Commercial support included | Commercial support included |
-| **Data control** | Local/managed servers | Vendor infrastructure | Vendor infrastructure |
-| **Compliance responsibility** | User responsible for validation | Vendor provides frameworks | Vendor provides frameworks |
-| **Learning curve** | Moderate (requires R/Docker familiarity) | Low (web interface) | Low (web interface) |
+| Infrastructure | ~$40-500/mo | $200-1000/mo | $500-2000/mo |
+| Staff time | Required | Minimal | Minimal |
+| Data format | SQLite | Proprietary | Proprietary |
+| Customisation | Full source | Limited | Limited |
+| Support | Community | Commercial | Commercial |
+| Data control | Local | Vendor | Vendor |
+| Learning curve | Moderate | Low | Low |
 
----
+## Things to Watch Out For
 
-![Future possibilities and long-term independence strategies](../../images/posts/ucsd-geisel-library.jpg){.img-fluid width=100% style="margin: 2rem 0;"}
+1. **Infrastructure management is real work.** The
+   licensing savings from self-managed EDC are
+   offset by staff time for deployment, updates,
+   security patching, and troubleshooting. Budget
+   5-10 hours per month for ongoing administration.
+2. **Regulatory compliance is your responsibility.**
+   Commercial vendors provide compliance frameworks;
+   with self-managed EDC, you must validate
+   compliance with your own institutional and
+   regulatory requirements.
+3. **SQLite has concurrency limitations.** For
+   studies with many simultaneous data entry users,
+   SQLite's single-writer constraint may cause
+   performance issues. The enterprise path addresses
+   this with PostgreSQL.
+4. **Domain and DNS configuration adds complexity.**
+   The AWS deployment requires a registered domain
+   and DNS configuration, which involves coordination
+   with domain registrars and propagation delays.
+5. **Backup verification is essential.** Automated
+   backups are only useful if you regularly verify
+   that they can be restored. Schedule quarterly
+   restore tests.
 
-# Conclusion
+![A long-term planning document for clinical
+research infrastructure beside a laptop showing
+deployment monitoring](media/images/ambiance3.jpg
+){.img-fluid}
 
-This post examined investigator-managed EDC deployment using ZZedc as a case study. Open-source EDC systems represent a distinct approach to clinical research data management with different tradeoffs than commercial systems.
+*Long-term sustainability requires planning for
+maintenance, updates, and eventual data archival.*
 
-**ZZedc may be suitable if your research program**:
-- Requires investigator control of data infrastructure
-- Has technical staff available for deployment and maintenance
-- Needs customization beyond commercial system data dictionaries
-- Prioritizes standard data formats for long-term data stewardship
-- Has cost constraints that favor lower licensing fees over vendor support
+## Lessons Learnt
 
-**ZZedc may not be suitable if your program**:
-- Needs vendor support and SLAs
-- Lacks technical staff for infrastructure management
-- Prefers point-and-click configuration without technical knowledge
-- Requires regulatory compliance consulting beyond implementation
-- Operates with limited budgets for ongoing system administration
+### Conceptual Understanding
 
-**Total cost of ownership** includes both infrastructure costs and staff time. The financial comparison between investigator-managed and vendor-managed systems depends on your specific local costs, technical capacity, and support requirements.
+- The barriers to investigator-managed EDC are
+  primarily organisational, not technical. ZZedc
+  installs and runs with minimal technical effort;
+  the challenge is accepting responsibility for
+  infrastructure.
+- Total cost of ownership includes both
+  infrastructure costs and staff time. The
+  financial comparison with vendor-managed systems
+  depends on local staff costs versus vendor
+  licensing.
+- Data portability is a more valuable feature than
+  it appears initially. When a vendor relationship
+  ends, portable data formats (SQLite, CSV) prevent
+  costly migration projects.
+- Open-source EDC requires a different support
+  model: community forums and documentation replace
+  vendor helpdesks.
 
----
+### Technical Skills
 
-## Author's Note
+- The ZZedc `init()` function generates a
+  project-specific configuration through
+  interactive prompts, requiring no prior R/Shiny
+  deployment experience.
+- The `aws_setup.sh` script automates EC2 instance
+  creation, Docker deployment, and Caddy HTTPS
+  configuration.
+- SQLite databases can be queried directly from R
+  using the `RSQLite` package, enabling tight
+  integration between data capture and analysis.
+- Caddy's automatic Let's Encrypt integration
+  eliminates the complexity of manual HTTPS
+  certificate management.
 
-This post evaluates ZZedc as an open-source EDC option. The author has involvement with ZZedc development and therefore has a perspective shaped by that experience. This post aims to present an honest assessment of tradeoffs rather than marketing. Potential users should independently evaluate ZZedc against alternatives, consult with institutional IT and compliance teams, and pilot implementations before full deployment.
+### Gotchas and Pitfalls
 
-## Next Steps
+- The first deployment takes longer than the
+  documented estimates because of DNS propagation
+  delays and AWS account setup.
+- SQLite's single-writer limitation is not apparent
+  in testing but surfaces under production load
+  with multiple simultaneous users.
+- Institutional IT departments may resist
+  investigator-managed infrastructure; engage them
+  early in the planning process.
+- Security patching is an ongoing responsibility
+  that is easy to neglect; schedule monthly
+  maintenance windows.
 
-**Start exploring**:
-- **Solo researcher?** See `vignettes/quick-start-solo-researcher.Rmd`
-- **Team with AWS?** See `vignettes/quick-start-aws-devops.Rmd`
-- **IT staff deploying?** See `deployment/IT_STAFF_DEPLOYMENT_CHECKLIST.md`
-- **Need help?** Visit https://github.com/rgt47/zzedc for documentation and issues
+## Limitations
 
-The goal of ZZedc is simple: **Put clinical research data management back in the hands of investigators**.
+- ZZedc requires technical staff for deployment
+  and maintenance. Programmes without IT support
+  capacity should consider vendor-managed
+  alternatives.
+- The comparison with commercial systems (REDCap,
+  Medidata) is incomplete because it does not
+  account for the value of vendor-provided
+  training, documentation, and support.
+- SQLite is appropriate for small to medium studies
+  but may not scale to large multi-site trials
+  with hundreds of concurrent users.
+- Regulatory compliance validation must be
+  performed independently for each implementation
+  context; ZZedc does not provide pre-validated
+  compliance frameworks.
+- This post evaluates a single open-source EDC
+  system; alternatives such as OpenClinica deserve
+  independent evaluation.
+- The author has involvement with ZZedc
+  development, which shapes the perspective
+  presented here.
 
----
+## Opportunities for Improvement
 
-## Resources
+1. Develop a comprehensive compliance validation
+   framework that maps ZZedc features to 21 CFR
+   Part 11 and GDPR requirements.
+2. Create a migration toolkit that automates data
+   import from REDCap, Medidata, and CSV sources.
+3. Build a monitoring dashboard that alerts
+   administrators to security issues, backup
+   failures, and performance degradation.
+4. Implement PostgreSQL support for the enterprise
+   deployment path to address SQLite's concurrency
+   limitations.
+5. Develop institutional deployment guides that
+   address common IT department concerns about
+   investigator-managed infrastructure.
+6. Create a cost comparison calculator that accounts
+   for both licensing and staff time across
+   different EDC approaches.
 
-- **ZZedc GitHub**: https://github.com/rgt47/zzedc
-- **Documentation**: See `vignettes/` directory for comprehensive guides
-- **Deployment guides**: See `deployment/` directory for AWS, Docker, and operational guides
-- **Support**: Open an issue on GitHub or contact zzedc@ucsd.edu
+# Wrapping Up
 
----
+Running ZZedc independently for clinical research
+data management is technically achievable and
+financially attractive for programmes with the
+technical capacity to manage their own
+infrastructure. The system installs quickly, stores
+data in portable formats, and provides the core
+features -- data entry, validation, audit trails,
+role-based access -- that clinical research
+requires.
 
-**Published**: December 2025
-**Author**: Clinical Research Technology Team
-**License**: Open source (see GitHub repository for license details)
-**Status**: Production ready
+What I learnt most from this evaluation is that the
+decision between investigator-managed and
+vendor-managed EDC is not about technology. It is
+about organisational capacity. If you have staff who
+can manage AWS instances, apply security patches,
+and verify backups, the financial case for
+self-managed EDC is strong. If you do not, the
+hidden costs of self-management may exceed the
+visible costs of vendor licensing.
 
+I encourage investigators interested in this
+approach to start with the solo researcher path.
+Deploy ZZedc on your laptop, create a small pilot
+study, and evaluate whether the system meets your
+needs before committing to AWS deployment. The
+migration path from local to cloud is
+straightforward.
+
+Main takeaways:
+
+- ZZedc provides investigator-controlled EDC with
+  standard data formats and open-source code.
+- Three deployment paths serve different scales:
+  solo researcher, team research, and enterprise.
+- Total cost of ownership includes both
+  infrastructure costs and staff time.
+- Start with a local pilot before committing to
+  cloud deployment.
+
+# See Also
+
+**Related posts:**
+
+- [Testing Data Analysis Workflows](
+  ../40-testingfordataanalysisworkflow/) --
+  Testing strategies for research pipelines
+
+**Key resources:**
+
+- [ZZedc GitHub](
+  https://github.com/rgt47/zzedc) --
+  Source code and documentation
+- [ZZedc Deployment Guide](
+  https://github.com/rgt47/zzedc/tree/main/
+  deployment) --
+  AWS and Docker deployment instructions
+- [REDCap](https://www.project-redcap.org/) --
+  The most widely used academic EDC system
+- [21 CFR Part 11 Guidance](
+  https://www.fda.gov/regulatory-information/
+  search-fda-guidance-documents) --
+  FDA electronic records regulation
+
+# Reproducibility
+
+ZZedc is an R package available on GitHub. To
+install and evaluate:
+
+```r
+install.packages("zzedc")
+library(zzedc)
+zzedc::init()
+launch_zzedc()
+```
+
+For AWS deployment:
+
+```bash
+git clone https://github.com/rgt47/zzedc.git
+cd zzedc/deployment
+chmod +x aws_setup.sh
+./aws_setup.sh --help
+```
+
+**Project files:**
+
+```
+zzedcindependence/
+  analysis/report/index.qmd  -- This post
+  analysis/media/images/      -- Hero, ambiance
+```
+
+```{r}
+#| echo: false
+#| eval: false
+sessionInfo()
+```
+
+# Let's Connect
+
+- **GitHub:**
+  [rgt47](https://github.com/rgt47)
+- **Twitter/X:**
+  [@rgt47](https://twitter.com/rgt47)
+- **LinkedIn:**
+  [Ronald Glenn Thomas](
+  https://linkedin.com/in/rgthomaslab)
+- **Email:**
+  [rgtlab.org/contact](https://rgtlab.org/contact)
+
+I would enjoy hearing from you if:
+
+- You spot an error or a better approach to any of
+  the code in this post.
+- You have suggestions for topics you would like to
+  see covered.
+- You want to discuss R programming, data science,
+  or reproducible research.
+- You have questions about anything in this
+  tutorial.
+- You just want to say hello and connect.
