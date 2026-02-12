@@ -105,10 +105,9 @@ I am documenting my learning process here. If you
 spot errors or have better approaches, please let
 me know.
 
-![A clinical research coordinator entering data on
-a laptop in a
-clinic setting](media/images/ambiance1.jpg
-){.img-fluid}
+![A clinical research coordinator entering data
+on a laptop in a clinic
+setting](media/images/ambiance1.jpg){.img-fluid}
 
 *Investigator independence requires accepting
 responsibility for infrastructure that vendors
@@ -457,8 +456,8 @@ your institutional compliance and IT teams.
 
 ![A long-term planning document for clinical
 research infrastructure beside a laptop showing
-deployment monitoring](media/images/ambiance3.jpg
-){.img-fluid}
+deployment
+monitoring](media/images/ambiance3.jpg){.img-fluid}
 
 *Long-term sustainability requires planning for
 maintenance, updates, and eventual data archival.*
