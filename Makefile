@@ -1,10 +1,10 @@
-# Makefile for zzedcindependence research compendium
+# Makefile for zzcollab research compendium
 # Docker-first workflow for reproducible research
 
-PACKAGE_NAME = zzedcindependence
-R_VERSION = 4.5.1
-TEAM_NAME = rgtlab
-PROJECT_NAME = 
+# Auto-detect from project (no manual configuration needed)
+PACKAGE_NAME := $(shell basename $(CURDIR))
+R_VERSION := $(shell grep 'R_VERSION=' Dockerfile 2>/dev/null | head -1 | sed 's/.*R_VERSION=//' || echo "4.5.1")
+PROJECT_NAME := $(PACKAGE_NAME)
 DOCKERHUB_ACCOUNT = rgt47
 
 # Git-based versioning for reproducibility (use git SHA or date)
@@ -32,8 +32,8 @@ help:
 	@echo "    docker-build-log      - Build with detailed logs (for debugging)"
 	@echo "    docker-rstudio        - Start RStudio Server"
 	@echo "    docker-push-team, docker-document, docker-build-pkg, docker-check"
-	@echo "    docker-test, docker-vignettes, docker-render, docker-check-renv"
-	@echo "    docker-check-renv-fix"
+	@echo "    docker-test, docker-vignettes, docker-render, docker-render-qmd"
+	@echo "    docker-check-renv, docker-check-renv-fix"
 	@echo ""
 	@echo "  Cleanup:"
 	@echo "    clean, docker-clean"
@@ -127,6 +127,9 @@ docker-vignettes: docker-document
 
 docker-render:
 	docker run --platform linux/amd64 --rm -v $$(pwd):/home/analyst/project $(PACKAGE_NAME) R --quiet -e "rmarkdown::render('analysis/paper/paper.Rmd')"
+
+docker-render-qmd:
+	docker run --platform linux/amd64 --rm -v $$(pwd):/home/analyst/project -w /home/analyst/project $(PACKAGE_NAME) quarto render analysis/report/index.qmd
 
 docker-check-renv:
 	docker run --platform linux/amd64 --rm -v $$(pwd):/home/analyst/project $(PACKAGE_NAME) R --quiet -e "renv::status()"
@@ -231,4 +234,4 @@ docker-prune-all:
 	@echo "✅ Docker cleanup complete"
 	@make docker-disk-usage
 
-.PHONY: all document build check install vignettes test deps check-renv check-renv-no-fix check-renv-no-strict check-renv-ci docker-build docker-rebuild docker-build-log docker-push-team docker-document docker-build-pkg docker-check docker-test docker-vignettes docker-render docker-rstudio docker-run r docker-check-renv docker-check-renv-fix clean docker-clean docker-disk-usage docker-prune-cache docker-prune-all help
+.PHONY: all document build check install vignettes test deps check-renv check-renv-no-fix check-renv-no-strict check-renv-ci docker-build docker-rebuild docker-build-log docker-push-team docker-document docker-build-pkg docker-check docker-test docker-vignettes docker-render docker-render-qmd docker-rstudio docker-run r docker-check-renv docker-check-renv-fix clean docker-clean docker-disk-usage docker-prune-cache docker-prune-all help
