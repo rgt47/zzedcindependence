@@ -105,9 +105,7 @@ I am documenting my learning process here. If you
 spot errors or have better approaches, please let
 me know.
 
-![A clinical research coordinator entering data
-on a laptop in a clinic
-setting](media/images/ambiance1.jpg){.img-fluid}
+![](media/images/aws-logo.png){.img-fluid width=30% fig-align="center"}
 
 *Investigator independence requires accepting
 responsibility for infrastructure that vendors
