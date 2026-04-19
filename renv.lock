@@ -53,9 +53,13 @@
     },
     "zzedc": {
       "Package": "zzedc",
-      "Version": "0.0.1",
-      "Source": "Local",
-      "Path": "~/prj/d06/zzedc"
+      "Version": "1.0.0",
+      "Source": "GitHub",
+      "RemoteType": "github",
+      "RemoteHost": "api.github.com",
+      "RemoteUsername": "rgt47",
+      "RemoteRepo": "zzedc",
+      "RemoteRef": "main"
     }
   }
 }
