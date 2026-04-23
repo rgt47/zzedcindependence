@@ -14,7 +14,7 @@ description: >
   ran a pilot study without vendor involvement.
 image: "media/images/hero.jpg"
 document-type: "blog"
-draft: true
+draft: false
 execute:
   echo: true
   warning: false
