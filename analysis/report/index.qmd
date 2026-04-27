@@ -65,6 +65,15 @@ assessment is honest about both the advantages and
 the significant responsibilities that come with
 managing your own clinical data infrastructure.
 
+More formally, this post documents the convergence of the
+Cloud and Applications layers of the Workflow Construct
+described in [post 52](/posts/52-workflow-construct/),
+specifically running ZZedc as a Shiny application on EC2 with
+an independently provisioned database. This is the construct's
+worked example for hosting a researcher-facing clinical data
+tool end-to-end on the construct's own cloud infrastructure,
+rather than depending on a third-party managed service.
+
 ## Motivations
 
 - My research programme was paying $40,000 per year
